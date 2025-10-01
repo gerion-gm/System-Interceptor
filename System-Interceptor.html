@@ -1,0 +1,1984 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Functions Interceptor</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #00ff00;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: calc(100vw - 20px);
+            max-width: 1200px;
+            z-index: 10001;
+            background: rgba(26, 26, 26, 0.98);
+            padding: 10px;
+            border-radius: 10px;
+            border: 2px solid #333;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+            max-height: 120px;
+            min-height: 100px;
+            overflow: hidden;
+            resize: both;
+            display: flex;
+            gap: 15px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 10px;
+            border: 2px solid #00ff00;
+        }
+        
+        .section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 8px;
+            background: rgba(42, 42, 42, 0.8);
+            border-radius: 8px;
+            border: 1px solid #555;
+        }
+        
+        .section-title {
+            font-size: 12px;
+            font-weight: bold;
+            color: #00ff00;
+            margin-bottom: 5px;
+            text-align: center;
+        }
+        
+        .section-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            transition: all 0.3s;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+        
+        .btn-start {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .btn-stop {
+            background: #F44336;
+            color: white;
+        }
+        
+        .btn-clear {
+            background: #FF9800;
+            color: white;
+        }
+        
+        .btn:hover {
+            opacity: 0.8;
+            transform: translateY(-2px);
+        }
+        
+        .stats {
+            background: #2a2a2a;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            border: 1px solid #444;
+        }
+        
+        .middle-panel {
+            position: fixed;
+            top: 140px;
+            left: 10px;
+            right: 10px;
+            width: calc(100vw - 20px);
+            height: 120px;
+            background: rgba(40, 40, 40, 0.95);
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            padding: 10px;
+            z-index: 10001;
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+            resize: vertical;
+            min-height: 80px;
+            max-height: 200px;
+            overflow: hidden;
+        }
+        
+        .output-panel {
+            position: fixed;
+            top: 270px;
+            left: 10px;
+            right: 10px;
+            width: calc(100vw - 20px);
+            height: calc(100vh - 290px);
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.95);
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            padding: 20px;
+            z-index: 10000;
+            border: 3px solid #00ff00;
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.5);
+            resize: both;
+            min-width: 400px;
+            min-height: 200px;
+        }
+        
+        .log-entry {
+            margin: 4px 0;
+            padding: 8px 12px;
+            border-left: 4px solid;
+            background: rgba(255, 255, 255, 0.1);
+            word-break: break-all;
+            font-size: 13px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            line-height: 1.4;
+            opacity: 1;
+        }
+        
+        .log-entry:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateX(2px);
+        }
+        
+        .log-info { border-color: #4CAF50; }
+        .log-warn { border-color: #FF9800; }
+        .log-error { border-color: #F44336; }
+        .log-eval { border-color: #2196F3; }
+        .log-analysis { 
+            border-color: #9C27B0; 
+            background: rgba(156, 39, 176, 0.3); 
+            border-left-width: 6px;
+            font-weight: bold;
+        }
+        .log-script { 
+            border-color: #FF5722; 
+            background: rgba(255, 87, 34, 0.3); 
+            border-left-width: 6px;
+            font-weight: bold;
+        }
+        
+        /* Кастомная полоса прокрутки */
+        .output-panel::-webkit-scrollbar {
+            width: 12px;
+        }
+        
+        .output-panel::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 6px;
+        }
+        
+        .output-panel::-webkit-scrollbar-thumb {
+            background: #00ff00;
+            border-radius: 6px;
+            border: 2px solid rgba(0, 0, 0, 0.3);
+        }
+        
+        .output-panel::-webkit-scrollbar-thumb:hover {
+            background: #00cc00;
+        }
+        .log-function { border-color: #9C27B0; }
+        
+        .test-buttons {
+            margin-top: 8px;
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .test-btn {
+            background: #2196F3;
+            color: white;
+            padding: 4px 8px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Секция 1: Название ПО -->
+        <div class="section">
+            <div class="section-title">🛡️ System Functions Interceptor</div>
+            <div class="section-content">
+                <div style="text-align: center; font-size: 11px; color: #888; margin-bottom: 8px;">
+                    Перехват системных функций JavaScript
+                </div>
+                <button id="toggleLogPanel" onclick="toggleLogPanel()" style="
+                    background: #4CAF50; 
+                    color: white; 
+                    border: none; 
+                    padding: 6px 12px; 
+                    border-radius: 4px; 
+                    cursor: pointer; 
+                    font-size: 11px; 
+                    width: 100%;
+                " title="Ctrl+H для быстрого переключения">📋 Скрыть панель лога</button>
+            </div>
+        </div>
+        
+        <!-- Секция 2: Статистика -->
+        <div class="section">
+            <div class="section-title">📊 Статистика</div>
+            <div class="section-content">
+                <div style="font-size: 11px; margin-bottom: 3px;">
+                    Перехватов: <span id="interception-count" style="color: #00ff00; font-weight: bold;">0</span>
+                </div>
+                <div style="font-size: 11px;">
+                    Статус: <span id="status" style="color: #ff4444; font-weight: bold;">Неактивен</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Секция 3: Загрузка файлов -->
+        <div class="section">
+            <div class="section-title">📦 Загрузка JS файлов</div>
+            <div class="section-content">
+                <input type="text" id="scriptFileName" placeholder="Имя JS файла (например: Uq3o4_B3Mp.js)" 
+                       style="width: 100%; padding: 6px; border: 1px solid #555; border-radius: 4px; background: #1a1a1a; color: #00ff00; font-family: 'Courier New', monospace; font-size: 11px; margin-bottom: 6px;">
+                <div style="display: flex; gap: 4px; margin-bottom: 4px;">
+                    <button class="test-btn" onclick="loadScriptFile()" style="flex: 1; padding: 4px 6px; font-size: 10px;">📥 Загрузить</button>
+                    <button class="test-btn" onclick="analyzeScriptFile()" style="flex: 1; padding: 4px 6px; font-size: 10px;">🔍 Анализ</button>
+                </div>
+                <div style="color: #888; font-size: 10px; text-align: center;">
+                    Файл в том же каталоге
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Промежуточная панель с кнопками -->
+    <div class="middle-panel" id="middlePanel">
+        <h3 style="margin: 0 0 8px 0; font-size: 14px;">🎛️ Панель управления:</h3>
+        <div class="controls">
+            <button class="btn btn-start" onclick="startInterception()">🚀 Запустить</button>
+            <button class="btn btn-stop" onclick="stopInterception()">🛑 Остановить</button>
+            <button class="btn btn-clear" onclick="clearOutput()">🧹 Очистить</button>
+            <button class="btn" id="debugToggle" onclick="toggleDebugMode()" style="background: #666; color: white;">🐛 Отладка</button>
+            <button class="btn" onclick="resizeMainPanel('small')" style="background: #FF9800; color: white;">📏 Маленькая</button>
+            <button class="btn" onclick="resizeMainPanel('large')" style="background: #4CAF50; color: white;">📏 Большая</button>
+            <button class="btn" onclick="resizeMiddlePanel('small')" style="background: #9C27B0; color: white;">📏 Панель−</button>
+            <button class="btn" onclick="resizeMiddlePanel('large')" style="background: #E91E63; color: white;">📏 Панель+</button>
+        </div>
+        
+        <div class="test-buttons">
+            <h4 style="margin: 0 8px 0 0; font-size: 12px; display: inline;">🧪 Тесты:</h4>
+            <button class="test-btn" onclick="testEval()">🧪 eval()</button>
+            <button class="test-btn" onclick="testFunction()">🧪 Function()</button>
+            <button class="test-btn" onclick="testSetTimeout()">⏰ setTimeout()</button>
+            <button class="test-btn" onclick="testSetInterval()">🔄 setInterval()</button>
+            <button class="test-btn" onclick="testFetch()">🌐 fetch()</button>
+            <button class="test-btn" onclick="testLocalStorage()">💾 localStorage</button>
+            <button class="test-btn" onclick="testGeolocation()">📍 Geolocation</button>
+            <button class="test-btn" onclick="testClipboard()">📋 Clipboard</button>
+            <button class="test-btn" onclick="testHistory()">📜 History</button>
+            <button class="test-btn" onclick="testLocation()">🌍 Location</button>
+            <button class="test-btn" onclick="testConsole()">🖥️ Console</button>
+            <button class="test-btn" onclick="testPerformance()">⏱️ Performance</button>
+            <button class="test-btn" onclick="testObservers()">👁️ Observers</button>
+        </div>
+    </div>
+
+    <script>
+        // ==================== OUTPUT LOGGER ====================
+        class OutputLogger {
+            constructor() {
+                this.createOutputPanel();
+                this.debugMode = false; // Отладочный режим по умолчанию выключен
+            }
+            
+            createOutputPanel() {
+                // Проверяем, не существует ли уже панель
+                let panel = document.querySelector('.output-panel');
+                if (panel) {
+                    this.outputElement = panel;
+                    this.isCollapsed = false;
+                    return;
+                }
+                
+                panel = document.createElement('div');
+                panel.className = 'output-panel';
+                panel.style.resize = 'both'; // Добавляем возможность изменения размера
+                
+                const title = document.createElement('div');
+                title.innerHTML = '<b>📋 Лог перехвата:</b> <span id="log-count" style="color: #888;">(0 записей)</span>';
+                title.style.marginBottom = '10px';
+                title.style.borderBottom = '1px solid #00ff00';
+                title.style.paddingBottom = '5px';
+                title.style.position = 'relative';
+                
+                const clearBtn = document.createElement('button');
+                clearBtn.textContent = 'Очистить';
+                clearBtn.style.cssText = `
+                    position: absolute; top: 0px; right: 200px;
+                    background: #ff4444; color: white; border: none;
+                    padding: 3px 10px; border-radius: 4px; cursor: pointer;
+                    font-size: 11px; font-weight: bold;
+                `;
+                clearBtn.onclick = () => this.clearOutput();
+                
+                const scrollToBottomBtn = document.createElement('button');
+                scrollToBottomBtn.textContent = '⬇';
+                scrollToBottomBtn.style.cssText = `
+                    position: absolute; top: 0px; right: 160px;
+                    background: #2196F3; color: white; border: none;
+                    padding: 3px 8px; border-radius: 4px; cursor: pointer;
+                    font-size: 11px; font-weight: bold;
+                `;
+                scrollToBottomBtn.onclick = () => this.scrollToBottom();
+                
+                const resizeSmallBtn = document.createElement('button');
+                resizeSmallBtn.textContent = '📏−';
+                resizeSmallBtn.style.cssText = `
+                    position: absolute; top: 0px; right: 120px;
+                    background: #FF9800; color: white; border: none;
+                    padding: 3px 8px; border-radius: 4px; cursor: pointer;
+                    font-size: 11px; font-weight: bold;
+                `;
+                resizeSmallBtn.onclick = () => resizeLogPanel('small');
+                
+                const resizeLargeBtn = document.createElement('button');
+                resizeLargeBtn.textContent = '📏+';
+                resizeLargeBtn.style.cssText = `
+                    position: absolute; top: 0px; right: 80px;
+                    background: #4CAF50; color: white; border: none;
+                    padding: 3px 8px; border-radius: 4px; cursor: pointer;
+                    font-size: 11px; font-weight: bold;
+                `;
+                resizeLargeBtn.onclick = () => resizeLogPanel('large');
+                
+                const toggleBtn = document.createElement('button');
+                toggleBtn.textContent = '−';
+                toggleBtn.style.cssText = `
+                    position: absolute; top: 0px; right: 5px;
+                    background: #4CAF50; color: white; border: none;
+                    padding: 3px 8px; border-radius: 4px; cursor: pointer;
+                    font-size: 11px; font-weight: bold;
+                `;
+                toggleBtn.onclick = () => this.togglePanel();
+                
+                panel.appendChild(title);
+                panel.appendChild(clearBtn);
+                panel.appendChild(scrollToBottomBtn);
+                panel.appendChild(resizeSmallBtn);
+                panel.appendChild(resizeLargeBtn);
+                panel.appendChild(toggleBtn);
+                document.body.appendChild(panel);
+                
+                this.outputElement = panel;
+                this.isCollapsed = false;
+            }
+            
+            logToConsole(message, data = null) {
+                console.log('%c🔍 ' + message, 'color: #4CAF50; font-weight: bold;', data || '');
+            }
+            
+            logToPage(message, type = 'info') {
+                const div = document.createElement('div');
+                div.className = `log-entry log-${type}`;
+                
+                const timestamp = new Date().toLocaleTimeString();
+                div.innerHTML = `<span style="color: #888;">[${timestamp}]</span> ${message}`;
+                
+                this.outputElement.appendChild(div);
+                this.outputElement.scrollTop = this.outputElement.scrollHeight;
+                
+                // Обновляем счетчик записей
+                this.updateLogCount();
+                
+                // Ограничиваем количество логов до 5000 записей
+                if (this.outputElement.children.length > 5000) {
+                    this.outputElement.removeChild(this.outputElement.children[3]);
+                    this.updateLogCount();
+                }
+                
+                // Логирование в консоль только в отладочном режиме
+                if (this.debugMode) {
+                    console.log(`[${type.toUpperCase()}] ${message}`);
+                }
+            }
+            
+            updateLogCount() {
+                const logCount = this.outputElement.querySelector('#log-count');
+                if (logCount) {
+                    const entryCount = this.outputElement.querySelectorAll('.log-entry').length;
+                    let status = '';
+                    if (entryCount > 4000) status = ' 🔥';
+                    else if (entryCount > 3000) status = ' ⚡';
+                    else if (entryCount > 2000) status = ' 📊';
+                    else if (entryCount > 1000) status = ' 📈';
+                    else if (entryCount > 500) status = ' 📋';
+                    logCount.textContent = `(${entryCount} записей${status})`;
+                }
+            }
+            
+            clearOutput() {
+                const children = Array.from(this.outputElement.children);
+                children.slice(3).forEach(child => child.remove());
+                this.logToPage('📋 Лог очищен', 'info');
+            }
+            
+            scrollToBottom() {
+                this.outputElement.scrollTop = this.outputElement.scrollHeight;
+            }
+            
+            togglePanel() {
+                this.isCollapsed = !this.isCollapsed;
+                const content = this.outputElement.querySelectorAll('.log-entry');
+                const toggleBtn = this.outputElement.querySelector('button:last-child');
+                
+                if (this.isCollapsed) {
+                    content.forEach(entry => entry.style.display = 'none');
+                    toggleBtn.textContent = '+';
+                    this.outputElement.style.height = '80px';
+                } else {
+                    content.forEach(entry => entry.style.display = 'block');
+                    toggleBtn.textContent = '−';
+                    this.outputElement.style.height = '70vh';
+                }
+            }
+        }
+
+        // ==================== SYSTEM INTERCEPTOR ====================
+        class SystemInterceptor {
+            constructor() {
+                this.logger = new OutputLogger();
+                this.originals = {};
+                this.interceptionCount = 0;
+                this.isActive = false;
+            }
+            
+            startInterception() {
+                if (this.isActive) return;
+                
+                this.interceptEval();
+                this.interceptFunction();
+                this.interceptTimers();
+                this.interceptDOM();
+                this.interceptNetwork();
+                this.interceptWebSockets();
+                this.interceptWebRTC();
+                this.interceptStorage();
+                this.interceptGeolocation();
+                this.interceptMediaDevices();
+                this.interceptCrypto();
+                this.interceptWorkers();
+                this.interceptServiceWorkers();
+                this.interceptNotifications();
+                this.interceptClipboard();
+                this.interceptHistory();
+                this.interceptLocation();
+                this.interceptNavigator();
+                this.interceptWindow();
+                this.interceptDocument();
+                this.interceptConsole();
+                this.interceptPerformance();
+                this.interceptMutationObserver();
+                this.interceptIntersectionObserver();
+                this.interceptResizeObserver();
+                
+                this.isActive = true;
+                this.updateStats();
+                
+                this.logger.logToPage('🚀 <b>Расширенный перехват системных функций активирован!</b>', 'info');
+                this.logger.logToConsole('Расширенный системный перехват активирован');
+            }
+            
+            stopInterception() {
+                if (!this.isActive) return;
+                
+                this.restoreOriginals();
+                this.isActive = false;
+                this.updateStats();
+                
+                this.logger.logToPage('🛑 <b>Перехват остановлен</b>', 'info');
+                this.logger.logToConsole('Перехват остановлен');
+            }
+            
+            interceptEval() {
+                this.originals.eval = window.eval;
+                const self = this;
+                
+                window.eval = function(code) {
+                    self.interceptionCount++;
+                    const evalId = self.interceptionCount;
+                    
+                    const logData = {
+                        id: evalId,
+                        code: code.substring(0, 200) + (code.length > 200 ? '...' : ''),
+                        length: code.length
+                    };
+                    
+                    self.logger.logToConsole(`EVAL #${evalId}`, logData);
+                    self.logger.logToPage(
+                        `🔓 <b>eval</b> #${evalId}: ${code.length} chars | ` +
+                        `<span title="${self.escapeHtml(code)}">${self.escapeHtml(logData.code)}</span>`,
+                        'eval'
+                    );
+                    
+                    try {
+                        const result = self.originals.eval.call(this, code);
+                        self.logger.logToPage(
+                            `✅ <b>eval</b> #${evalId} завершен | результат: ${typeof result}`,
+                            'info'
+                        );
+                        return result;
+                    } catch (error) {
+                        self.logger.logToPage(
+                            `❌ <b>eval</b> #${evalId} ошибка: ${error.message}`,
+                            'error'
+                        );
+                        throw error;
+                    }
+                };
+            }
+            
+            interceptFunction() {
+                this.originals.Function = window.Function;
+                const self = this; // Сохраняем ссылку на this
+                
+                window.Function = function(...args) {
+                    self.interceptionCount++;
+                    const funcId = self.interceptionCount;
+                    
+                    const body = args.length > 0 ? args[args.length - 1] : '';
+                    const params = args.slice(0, -1);
+                    
+                    self.logger.logToConsole(`FUNCTION #${funcId}`, {
+                        parameters: params,
+                        bodyLength: body.length
+                    });
+                    
+                    self.logger.logToPage(
+                        `🔧 <b>Function</b> #${funcId}: ${params.length} params, ` +
+                        `${body.length} chars тела`,
+                        'function'
+                    );
+                    
+                    return self.originals.Function.apply(this, args);
+                };
+            }
+            
+            interceptTimers() {
+                this.originals.setTimeout = window.setTimeout;
+                const self = this;
+                window.setTimeout = function(callback, delay, ...args) {
+                    self.logger.logToPage(
+                        `⏰ <b>setTimeout</b>: ${delay}ms | ` +
+                        `callback: ${callback.name || 'anonymous'}`,
+                        'info'
+                    );
+                    return self.originals.setTimeout.call(this, callback, delay, ...args);
+                };
+                
+                this.originals.setInterval = window.setInterval;
+                window.setInterval = function(callback, delay, ...args) {
+                    self.logger.logToPage(
+                        `🔄 <b>setInterval</b>: ${delay}ms | ` +
+                        `callback: ${callback.name || 'anonymous'}`,
+                        'info'
+                    );
+                    return self.originals.setInterval.call(this, callback, delay, ...args);
+                };
+            }
+            
+            interceptDOM() {
+                this.originals.documentWrite = document.write;
+                const self = this;
+                document.write = function(...args) {
+                    const content = args.join('');
+                    self.logger.logToPage(
+                        `📝 <b>document.write</b>: ${content.length} chars | ` +
+                        `"${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`,
+                        'warn'
+                    );
+                    return self.originals.documentWrite.apply(this, args);
+                };
+            }
+            
+            interceptNetwork() {
+                if (window.fetch) {
+                    this.originals.fetch = window.fetch;
+                    const self = this;
+                    window.fetch = function(url, options) {
+                        self.logger.logToPage(
+                            `🌐 <b>fetch</b>: ${url} | method: ${options?.method || 'GET'}`,
+                            'info'
+                        );
+                        
+                        return self.originals.fetch.call(this, url, options)
+                            .then(response => {
+                                self.logger.logToPage(
+                                    `✅ <b>fetch</b> завершен: ${url} | status: ${response.status}`,
+                                    'info'
+                                );
+                                return response;
+                            })
+                            .catch(error => {
+                                self.logger.logToPage(
+                                    `❌ <b>fetch</b> ошибка: ${url} | error: ${error.message}`,
+                                    'error'
+                                );
+                                throw error;
+                            });
+                    };
+                }
+                
+                // XMLHttpRequest
+                if (window.XMLHttpRequest) {
+                    this.originals.XMLHttpRequest = window.XMLHttpRequest;
+                    const self = this;
+                    window.XMLHttpRequest = function() {
+                        const xhr = new self.originals.XMLHttpRequest();
+                        const originalOpen = xhr.open;
+                        const originalSend = xhr.send;
+                        
+                        xhr.open = function(method, url, ...args) {
+                            self.logger.logToPage(
+                                `📡 <b>XMLHttpRequest.open</b>: ${method} ${url}`,
+                                'info'
+                            );
+                            return originalOpen.call(this, method, url, ...args);
+                        };
+                        
+                        xhr.send = function(data) {
+                            self.logger.logToPage(
+                                `📤 <b>XMLHttpRequest.send</b>: ${data ? data.length + ' bytes' : 'no data'}`,
+                                'info'
+                            );
+                            return originalSend.call(this, data);
+                        };
+                        
+                        return xhr;
+                    };
+                }
+            }
+            
+            interceptWebSockets() {
+                if (window.WebSocket) {
+                    this.originals.WebSocket = window.WebSocket;
+                    const self = this;
+                    window.WebSocket = function(url, protocols) {
+                        self.logger.logToPage(
+                            `🔌 <b>WebSocket</b>: ${url} | protocols: ${protocols || 'none'}`,
+                            'info'
+                        );
+                        
+                        const ws = new self.originals.WebSocket(url, protocols);
+                        
+                        const originalSend = ws.send;
+                        ws.send = function(data) {
+                            self.logger.logToPage(
+                                `📤 <b>WebSocket.send</b>: ${data.length} bytes`,
+                                'info'
+                            );
+                            return originalSend.call(this, data);
+                        };
+                        
+                        return ws;
+                    };
+                }
+            }
+            
+            interceptWebRTC() {
+                if (window.RTCPeerConnection) {
+                    this.originals.RTCPeerConnection = window.RTCPeerConnection;
+                    const self = this;
+                    window.RTCPeerConnection = function(config) {
+                        self.logger.logToPage(
+                            `📹 <b>WebRTC</b>: RTCPeerConnection создан`,
+                            'warn'
+                        );
+                        return new self.originals.RTCPeerConnection(config);
+                    };
+                }
+            }
+            
+            interceptStorage() {
+                // localStorage
+                if (window.localStorage) {
+                    const self = this;
+                    const originalSetItem = localStorage.setItem;
+                    const originalGetItem = localStorage.getItem;
+                    const originalRemoveItem = localStorage.removeItem;
+                    
+                    localStorage.setItem = function(key, value) {
+                        self.logger.logToPage(
+                            `💾 <b>localStorage.setItem</b>: ${key} = ${value}`,
+                            'info'
+                        );
+                        return originalSetItem.call(this, key, value);
+                    };
+                    
+                    localStorage.getItem = function(key) {
+                        self.logger.logToPage(
+                            `💾 <b>localStorage.getItem</b>: ${key}`,
+                            'info'
+                        );
+                        return originalGetItem.call(this, key);
+                    };
+                    
+                    localStorage.removeItem = function(key) {
+                        self.logger.logToPage(
+                            `💾 <b>localStorage.removeItem</b>: ${key}`,
+                            'info'
+                        );
+                        return originalRemoveItem.call(this, key);
+                    };
+                }
+                
+                // sessionStorage
+                if (window.sessionStorage) {
+                    const self = this;
+                    const originalSetItem = sessionStorage.setItem;
+                    const originalGetItem = sessionStorage.getItem;
+                    const originalRemoveItem = sessionStorage.removeItem;
+                    
+                    sessionStorage.setItem = function(key, value) {
+                        self.logger.logToPage(
+                            `🗂️ <b>sessionStorage.setItem</b>: ${key} = ${value}`,
+                            'info'
+                        );
+                        return originalSetItem.call(this, key, value);
+                    };
+                    
+                    sessionStorage.getItem = function(key) {
+                        self.logger.logToPage(
+                            `🗂️ <b>sessionStorage.getItem</b>: ${key}`,
+                            'info'
+                        );
+                        return originalGetItem.call(this, key);
+                    };
+                    
+                    sessionStorage.removeItem = function(key) {
+                        self.logger.logToPage(
+                            `🗂️ <b>sessionStorage.removeItem</b>: ${key}`,
+                            'info'
+                        );
+                        return originalRemoveItem.call(this, key);
+                    };
+                }
+            }
+            
+            interceptGeolocation() {
+                if (navigator.geolocation) {
+                    const self = this;
+                    const originalGetCurrentPosition = navigator.geolocation.getCurrentPosition;
+                    const originalWatchPosition = navigator.geolocation.watchPosition;
+                    
+                    navigator.geolocation.getCurrentPosition = function(success, error, options) {
+                        self.logger.logToPage(
+                            `📍 <b>Geolocation.getCurrentPosition</b>`,
+                            'warn'
+                        );
+                        return originalGetCurrentPosition.call(this, success, error, options);
+                    };
+                    
+                    navigator.geolocation.watchPosition = function(success, error, options) {
+                        self.logger.logToPage(
+                            `📍 <b>Geolocation.watchPosition</b>`,
+                            'warn'
+                        );
+                        return originalWatchPosition.call(this, success, error, options);
+                    };
+                }
+            }
+            
+            interceptMediaDevices() {
+                if (navigator.mediaDevices) {
+                    const self = this;
+                    const originalGetUserMedia = navigator.mediaDevices.getUserMedia;
+                    
+                    if (originalGetUserMedia) {
+                        navigator.mediaDevices.getUserMedia = function(constraints) {
+                            self.logger.logToPage(
+                                `📷 <b>getUserMedia</b>: ${JSON.stringify(constraints)}`,
+                                'warn'
+                            );
+                            return originalGetUserMedia.call(this, constraints);
+                        };
+                    }
+                }
+            }
+            
+            interceptCrypto() {
+                if (window.crypto) {
+                    const self = this;
+                    const originalGetRandomValues = crypto.getRandomValues;
+                    const originalSubtle = crypto.subtle;
+                    
+                    if (originalGetRandomValues) {
+                        crypto.getRandomValues = function(array) {
+                            self.logger.logToPage(
+                                `🔐 <b>crypto.getRandomValues</b>: ${array.length} bytes`,
+                                'info'
+                            );
+                            return originalGetRandomValues.call(this, array);
+                        };
+                    }
+                }
+            }
+            
+            interceptWorkers() {
+                if (window.Worker) {
+                    this.originals.Worker = window.Worker;
+                    const self = this;
+                    window.Worker = function(scriptURL, options) {
+                        self.logger.logToPage(
+                            `👷 <b>Worker</b>: ${scriptURL}`,
+                            'info'
+                        );
+                        return new self.originals.Worker(scriptURL, options);
+                    };
+                }
+            }
+            
+            interceptServiceWorkers() {
+                if (navigator.serviceWorker) {
+                    const self = this;
+                    const originalRegister = navigator.serviceWorker.register;
+                    
+                    navigator.serviceWorker.register = function(scriptURL, options) {
+                        self.logger.logToPage(
+                            `⚙️ <b>ServiceWorker.register</b>: ${scriptURL}`,
+                            'warn'
+                        );
+                        return originalRegister.call(this, scriptURL, options);
+                    };
+                }
+            }
+            
+            interceptNotifications() {
+                if (window.Notification) {
+                    const self = this;
+                    const originalRequestPermission = Notification.requestPermission;
+                    const originalConstructor = window.Notification;
+                    
+                    Notification.requestPermission = function() {
+                        self.logger.logToPage(
+                            `🔔 <b>Notification.requestPermission</b>`,
+                            'warn'
+                        );
+                        return originalRequestPermission.call(this);
+                    };
+                    
+                    window.Notification = function(title, options) {
+                        self.logger.logToPage(
+                            `🔔 <b>Notification</b>: ${title}`,
+                            'warn'
+                        );
+                        return new originalConstructor(title, options);
+                    };
+                }
+            }
+            
+            interceptClipboard() {
+                if (navigator.clipboard) {
+                    const self = this;
+                    const originalWriteText = navigator.clipboard.writeText;
+                    const originalReadText = navigator.clipboard.readText;
+                    
+                    if (originalWriteText) {
+                        navigator.clipboard.writeText = function(text) {
+                            self.logger.logToPage(
+                                `📋 <b>clipboard.writeText</b>: ${text.length} chars`,
+                                'warn'
+                            );
+                            return originalWriteText.call(this, text);
+                        };
+                    }
+                    
+                    if (originalReadText) {
+                        navigator.clipboard.readText = function() {
+                            self.logger.logToPage(
+                                `📋 <b>clipboard.readText</b>`,
+                                'warn'
+                            );
+                            return originalReadText.call(this);
+                        };
+                    }
+                }
+            }
+            
+            interceptHistory() {
+                const self = this;
+                
+                try {
+                    const originalPushState = history.pushState;
+                    history.pushState = function(state, title, url) {
+                        self.logger.logToPage(
+                            `📜 <b>history.pushState</b>: ${url}`,
+                            'info'
+                        );
+                        return originalPushState.call(this, state, title, url);
+                    };
+                } catch (error) {
+                    self.logger.logToPage(
+                        `⚠️ <b>history.pushState</b> не может быть перехвачен: ${error.message}`,
+                        'warn'
+                    );
+                }
+                
+                try {
+                    const originalReplaceState = history.replaceState;
+                    history.replaceState = function(state, title, url) {
+                        self.logger.logToPage(
+                            `📜 <b>history.replaceState</b>: ${url}`,
+                            'info'
+                        );
+                        return originalReplaceState.call(this, state, title, url);
+                    };
+                } catch (error) {
+                    self.logger.logToPage(
+                        `⚠️ <b>history.replaceState</b> не может быть перехвачен: ${error.message}`,
+                        'warn'
+                    );
+                }
+            }
+            
+            interceptLocation() {
+                const self = this;
+                
+                // Перехватываем только те методы, которые можно переопределить
+                try {
+                    const originalAssign = location.assign;
+                    if (originalAssign) {
+                        location.assign = function(url) {
+                            self.logger.logToPage(
+                                `🌍 <b>location.assign</b>: ${url}`,
+                                'warn'
+                            );
+                            return originalAssign.call(this, url);
+                        };
+                    }
+                } catch (error) {
+                    self.logger.logToPage(
+                        `⚠️ <b>location.assign</b> не может быть перехвачен: ${error.message}`,
+                        'warn'
+                    );
+                }
+                
+                try {
+                    const originalReplace = location.replace;
+                    if (originalReplace) {
+                        location.replace = function(url) {
+                            self.logger.logToPage(
+                                `🌍 <b>location.replace</b>: ${url}`,
+                                'warn'
+                            );
+                            return originalReplace.call(this, url);
+                        };
+                    }
+                } catch (error) {
+                    self.logger.logToPage(
+                        `⚠️ <b>location.replace</b> не может быть перехвачен: ${error.message}`,
+                        'warn'
+                    );
+                }
+            }
+            
+            interceptNavigator() {
+                const self = this;
+                
+                // navigator.sendBeacon
+                try {
+                    if (navigator.sendBeacon) {
+                        const originalSendBeacon = navigator.sendBeacon;
+                        navigator.sendBeacon = function(url, data) {
+                            self.logger.logToPage(
+                                `📡 <b>navigator.sendBeacon</b>: ${url}`,
+                                'info'
+                            );
+                            return originalSendBeacon.call(this, url, data);
+                        };
+                    }
+                } catch (error) {
+                    self.logger.logToPage(
+                        `⚠️ <b>navigator.sendBeacon</b> не может быть перехвачен: ${error.message}`,
+                        'warn'
+                    );
+                }
+            }
+            
+            interceptWindow() {
+                const self = this;
+                
+                // window.open
+                try {
+                    const originalOpen = window.open;
+                    window.open = function(url, name, specs) {
+                        self.logger.logToPage(
+                            `🪟 <b>window.open</b>: ${url}`,
+                            'warn'
+                        );
+                        return originalOpen.call(this, url, name, specs);
+                    };
+                } catch (error) {
+                    self.logger.logToPage(
+                        `⚠️ <b>window.open</b> не может быть перехвачен: ${error.message}`,
+                        'warn'
+                    );
+                }
+                
+                // window.postMessage
+                try {
+                    const originalPostMessage = window.postMessage;
+                    window.postMessage = function(message, targetOrigin, transfer) {
+                        self.logger.logToPage(
+                            `📨 <b>window.postMessage</b>: ${message}`,
+                            'info'
+                        );
+                        return originalPostMessage.call(this, message, targetOrigin, transfer);
+                    };
+                } catch (error) {
+                    self.logger.logToPage(
+                        `⚠️ <b>window.postMessage</b> не может быть перехвачен: ${error.message}`,
+                        'warn'
+                    );
+                }
+            }
+            
+            interceptDocument() {
+                const self = this;
+                
+                // document.cookie
+                try {
+                    const originalCookieDescriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie');
+                    if (originalCookieDescriptor) {
+                        Object.defineProperty(document, 'cookie', {
+                            get: function() {
+                                self.logger.logToPage(
+                                    `🍪 <b>document.cookie (get)</b>`,
+                                    'info'
+                                );
+                                return originalCookieDescriptor.get.call(this);
+                            },
+                            set: function(value) {
+                                self.logger.logToPage(
+                                    `🍪 <b>document.cookie (set)</b>: ${value}`,
+                                    'info'
+                                );
+                                return originalCookieDescriptor.set.call(this, value);
+                            }
+                        });
+                    }
+                } catch (error) {
+                    self.logger.logToPage(
+                        `⚠️ <b>document.cookie</b> не может быть перехвачен: ${error.message}`,
+                        'warn'
+                    );
+                }
+            }
+            
+            interceptConsole() {
+                const self = this;
+                const methods = ['log', 'warn', 'error', 'info', 'debug'];
+                
+                methods.forEach(method => {
+                    try {
+                        if (console[method]) {
+                            const original = console[method];
+                            console[method] = function(...args) {
+                                self.logger.logToPage(
+                                    `🖥️ <b>console.${method}</b>: ${args.join(' ')}`,
+                                    'info'
+                                );
+                                return original.apply(this, args);
+                            };
+                        }
+                    } catch (error) {
+                        self.logger.logToPage(
+                            `⚠️ <b>console.${method}</b> не может быть перехвачен: ${error.message}`,
+                            'warn'
+                        );
+                    }
+                });
+            }
+            
+            interceptPerformance() {
+                if (window.performance) {
+                    const self = this;
+                    
+                    // Убираем перехват performance.now для избежания проблем с производительностью
+                    
+                    try {
+                        const originalMark = performance.mark;
+                        if (originalMark) {
+                            performance.mark = function(name) {
+                                self.logger.logToPage(
+                                    `⏱️ <b>performance.mark</b>: ${name}`,
+                                    'info'
+                                );
+                                return originalMark.call(this, name);
+                            };
+                        }
+                    } catch (error) {
+                        self.logger.logToPage(
+                            `⚠️ <b>performance.mark</b> не может быть перехвачен: ${error.message}`,
+                            'warn'
+                        );
+                    }
+                    
+                    try {
+                        const originalMeasure = performance.measure;
+                        if (originalMeasure) {
+                            performance.measure = function(name, startMark, endMark) {
+                                self.logger.logToPage(
+                                    `⏱️ <b>performance.measure</b>: ${name}`,
+                                    'info'
+                                );
+                                return originalMeasure.call(this, name, startMark, endMark);
+                            };
+                        }
+                    } catch (error) {
+                        self.logger.logToPage(
+                            `⚠️ <b>performance.measure</b> не может быть перехвачен: ${error.message}`,
+                            'warn'
+                        );
+                    }
+                }
+            }
+            
+            interceptMutationObserver() {
+                if (window.MutationObserver) {
+                    this.originals.MutationObserver = window.MutationObserver;
+                    const self = this;
+                    window.MutationObserver = function(callback) {
+                        self.logger.logToPage(
+                            `👁️ <b>MutationObserver</b> создан`,
+                            'info'
+                        );
+                        return new self.originals.MutationObserver(callback);
+                    };
+                }
+            }
+            
+            interceptIntersectionObserver() {
+                if (window.IntersectionObserver) {
+                    this.originals.IntersectionObserver = window.IntersectionObserver;
+                    const self = this;
+                    window.IntersectionObserver = function(callback, options) {
+                        self.logger.logToPage(
+                            `👁️ <b>IntersectionObserver</b> создан`,
+                            'info'
+                        );
+                        return new self.originals.IntersectionObserver(callback, options);
+                    };
+                }
+            }
+            
+            interceptResizeObserver() {
+                if (window.ResizeObserver) {
+                    this.originals.ResizeObserver = window.ResizeObserver;
+                    const self = this;
+                    window.ResizeObserver = function(callback) {
+                        self.logger.logToPage(
+                            `📏 <b>ResizeObserver</b> создан`,
+                            'info'
+                        );
+                        return new self.originals.ResizeObserver(callback);
+                    };
+                }
+            }
+            
+            restoreOriginals() {
+                // Основные функции
+                if (this.originals.eval) window.eval = this.originals.eval;
+                if (this.originals.Function) window.Function = this.originals.Function;
+                if (this.originals.setTimeout) window.setTimeout = this.originals.setTimeout;
+                if (this.originals.setInterval) window.setInterval = this.originals.setInterval;
+                if (this.originals.documentWrite) document.write = this.originals.documentWrite;
+                if (this.originals.fetch) window.fetch = this.originals.fetch;
+                
+                // Сетевые функции
+                if (this.originals.XMLHttpRequest) window.XMLHttpRequest = this.originals.XMLHttpRequest;
+                if (this.originals.WebSocket) window.WebSocket = this.originals.WebSocket;
+                
+                // WebRTC
+                if (this.originals.RTCPeerConnection) window.RTCPeerConnection = this.originals.RTCPeerConnection;
+                
+                // Workers
+                if (this.originals.Worker) window.Worker = this.originals.Worker;
+                
+                // Observers
+                if (this.originals.MutationObserver) window.MutationObserver = this.originals.MutationObserver;
+                if (this.originals.IntersectionObserver) window.IntersectionObserver = this.originals.IntersectionObserver;
+                if (this.originals.ResizeObserver) window.ResizeObserver = this.originals.ResizeObserver;
+            }
+            
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+            
+            updateStats() {
+                document.getElementById('interception-count').textContent = this.interceptionCount;
+                document.getElementById('status').textContent = this.isActive ? 'Активен' : 'Неактивен';
+                document.getElementById('status').style.color = this.isActive ? '#4CAF50' : '#F44336';
+            }
+            
+            getStats() {
+                return {
+                    totalInterceptions: this.interceptionCount,
+                    active: this.isActive
+                };
+            }
+        }
+
+        // ==================== ПРОСТАЯ ЗАГРУЗКА JS ФАЙЛОВ ====================
+        let loadedScripts = new Set();
+        
+        // Загрузка JS файла
+        function loadScriptFile() {
+            if (!logger) {
+                console.error('Logger не инициализирован');
+                return;
+            }
+            
+            const fileName = document.getElementById('scriptFileName').value.trim();
+            if (!fileName) {
+                logger.logToPage('⚠️ <b>Загрузка</b>: Введите имя файла', 'warn');
+                return;
+            }
+            
+            // Проверяем, что файл уже не загружен
+            if (loadedScripts.has(fileName)) {
+                logger.logToPage(`⚠️ <b>Загрузка</b>: Файл уже загружен: ${fileName}`, 'warn');
+                return;
+            }
+            
+            logger.logToPage(`📥 <b>Загрузка</b>: Загружаем файл ${fileName}`, 'script');
+            
+            const script = document.createElement('script');
+            script.src = fileName;
+            script.async = true;
+            
+            script.onload = () => {
+                loadedScripts.add(fileName);
+                logger.logToPage(`✅ <b>Загрузка</b>: Файл успешно загружен: ${fileName}`, 'script');
+            };
+            
+            script.onerror = (error) => {
+                logger.logToPage(`❌ <b>Загрузка</b>: Ошибка загрузки файла: ${fileName}`, 'error');
+            };
+            
+            document.head.appendChild(script);
+        }
+        
+        // Анализ JS файла
+        function analyzeScriptFile() {
+            if (!logger) {
+                console.error('Logger не инициализирован');
+                return;
+            }
+            
+            const fileName = document.getElementById('scriptFileName').value.trim();
+            if (!fileName) {
+                logger.logToPage('⚠️ <b>Анализ</b>: Введите имя файла', 'warn');
+                return;
+            }
+            
+            logger.logToPage(`🔍 <b>Анализ</b>: Анализируем файл ${fileName}`, 'analysis');
+            
+            fetch(fileName)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.text();
+                })
+                .then(content => {
+                    analyzeScriptContent(content, fileName);
+                })
+                .catch(error => {
+                    logger.logToPage(`❌ <b>Анализ</b>: Ошибка загрузки файла: ${error.message}`, 'error');
+                });
+        }
+        
+        // Анализ содержимого скрипта
+        function analyzeScriptContent(content, fileName) {
+            const suspiciousPatterns = [
+                { pattern: /eval\s*\(/g, name: 'eval() вызовы', severity: 'high' },
+                { pattern: /Function\s*\(/g, name: 'Function() конструктор', severity: 'high' },
+                { pattern: /document\.write/g, name: 'document.write', severity: 'medium' },
+                { pattern: /innerHTML\s*=/g, name: 'innerHTML присваивание', severity: 'medium' },
+                { pattern: /setTimeout\s*\(/g, name: 'setTimeout вызовы', severity: 'low' },
+                { pattern: /XMLHttpRequest/g, name: 'XMLHttpRequest', severity: 'low' },
+                { pattern: /fetch\s*\(/g, name: 'fetch вызовы', severity: 'low' },
+                { pattern: /WebSocket/g, name: 'WebSocket соединения', severity: 'low' },
+                { pattern: /localStorage/g, name: 'localStorage операции', severity: 'low' },
+                { pattern: /sessionStorage/g, name: 'sessionStorage операции', severity: 'low' },
+                { pattern: /crypto\./g, name: 'crypto операции', severity: 'medium' },
+                { pattern: /navigator\./g, name: 'navigator API', severity: 'low' },
+                { pattern: /window\.open/g, name: 'window.open вызовы', severity: 'medium' },
+                { pattern: /postMessage/g, name: 'postMessage вызовы', severity: 'medium' },
+                { pattern: /addEventListener/g, name: 'event listeners', severity: 'low' },
+                { pattern: /setInterval/g, name: 'setInterval вызовы', severity: 'low' },
+                { pattern: /Promise/g, name: 'Promise использование', severity: 'low' },
+                { pattern: /async\s+function/g, name: 'async функции', severity: 'low' },
+                { pattern: /await\s+/g, name: 'await операторы', severity: 'low' },
+                { pattern: /class\s+\w+/g, name: 'ES6 классы', severity: 'low' },
+                { pattern: /=>\s*{/g, name: 'стрелочные функции', severity: 'low' },
+                { pattern: /import\s+/g, name: 'ES6 импорты', severity: 'low' },
+                { pattern: /export\s+/g, name: 'ES6 экспорты', severity: 'low' }
+            ];
+            
+            let totalWarnings = 0;
+            let highRiskCount = 0;
+            let mediumRiskCount = 0;
+            let lowRiskCount = 0;
+            
+            // Дополнительная статистика
+            const lines = content.split('\n').length;
+            const chars = content.length;
+            const words = content.split(/\s+/).length;
+            
+            logger.logToPage(`🔍 <b>Начинаем анализ скрипта</b>: ${fileName}`, 'analysis');
+            logger.logToPage(`📊 <b>Размер файла</b>: ${lines} строк, ${chars} символов, ${words} слов`, 'analysis');
+            
+            suspiciousPatterns.forEach(({ pattern, name, severity }) => {
+                const matches = content.match(pattern);
+                if (matches) {
+                    const count = matches.length;
+                    totalWarnings += count;
+                    
+                    // Подсчет по уровням риска
+                    if (severity === 'high') highRiskCount += count;
+                    else if (severity === 'medium') mediumRiskCount += count;
+                    else if (severity === 'low') lowRiskCount += count;
+                    
+                    const severityColor = {
+                        'high': '#F44336',
+                        'medium': '#FF9800',
+                        'low': '#2196F3'
+                    }[severity];
+                    
+                    logger.logToPage(
+                        `🔍 <b>Анализ скрипта</b>: ${name} (${count}x) - <span style="color: ${severityColor}">${severity}</span>`,
+                        'analysis'
+                    );
+                }
+            });
+            
+            // Итоговая статистика
+            logger.logToPage(
+                `📊 <b>Статистика рисков</b>: Высокий: ${highRiskCount}, Средний: ${mediumRiskCount}, Низкий: ${lowRiskCount}`,
+                'analysis'
+            );
+            
+            logger.logToPage(
+                `📊 <b>Анализ завершен</b>: ${fileName} | Всего найдено паттернов: ${totalWarnings}`,
+                totalWarnings > 10 ? 'error' : totalWarnings > 5 ? 'warn' : 'analysis'
+            );
+            
+            // Рекомендации по безопасности
+            if (highRiskCount > 0) {
+                logger.logToPage(`⚠️ <b>ВНИМАНИЕ</b>: Обнаружены высокорисковые паттерны! Рекомендуется тщательная проверка.`, 'error');
+            }
+            if (mediumRiskCount > 3) {
+                logger.logToPage(`⚠️ <b>Предупреждение</b>: Много средних рисков. Проверьте безопасность скрипта.`, 'warn');
+            }
+            if (totalWarnings === 0) {
+                logger.logToPage(`✅ <b>Безопасность</b>: Подозрительных паттернов не найдено.`, 'analysis');
+            }
+        }
+
+        // ==================== ТЕСТОВЫЕ ФУНКЦИИ ====================
+        function testEval() {
+            if (!logger) {
+                console.error('Logger не инициализирован');
+                return;
+            }
+            logger.logToPage('🧪 <b>Тест eval...</b>', 'info');
+            try {
+                const result = eval('2 + 2');
+                logger.logToPage(`✅ eval тест завершен: ${result}`, 'info');
+            } catch (error) {
+                logger.logToPage(`❌ eval тест ошибка: ${error.message}`, 'error');
+            }
+        }
+
+        function testFunction() {
+            if (!logger) {
+                console.error('Logger не инициализирован');
+                return;
+            }
+            logger.logToPage('🧪 <b>Тест Function...</b>', 'info');
+            try {
+                const dynamicFunc = new Function('a', 'b', 'return a + b');
+                const result = dynamicFunc(5, 3);
+                logger.logToPage(`✅ Function тест завершен: ${result}`, 'info');
+                
+                // Тестируем загрузку файла
+                logger.logToPage('🔍 <b>Тестируем загрузку Uq3o4_B3Mp.js...</b>', 'info');
+                document.getElementById('scriptFileName').value = 'Uq3o4_B3Mp.js';
+                loadScriptFile();
+            } catch (error) {
+                logger.logToPage(`❌ Function тест ошибка: ${error.message}`, 'error');
+            }
+        }
+        
+
+        function testSetTimeout() {
+            if (!logger) {
+                console.error('Logger не инициализирован');
+                return;
+            }
+            logger.logToPage('🧪 <b>Тест setTimeout...</b>', 'info');
+            setTimeout(() => {
+                logger.logToPage('✅ setTimeout сработал', 'info');
+            }, 1000);
+        }
+
+        function testFetch() {
+            if (!logger) {
+                console.error('Logger не инициализирован');
+                return;
+            }
+            logger.logToPage('🧪 <b>Тест fetch...</b>', 'info');
+            fetch('https://jsonplaceholder.typicode.com/todos/1')
+                .then(response => response.json())
+                .then(data => {
+                    logger.logToPage('✅ fetch тест завершен', 'info');
+                })
+                .catch(error => {
+                    logger.logToPage(`❌ fetch тест ошибка: ${error.message}`, 'error');
+                });
+        }
+
+        function testDocumentWrite() {
+            if (!logger) {
+                console.error('Logger не инициализирован');
+                return;
+            }
+            logger.logToPage('🧪 <b>Тест document.write...</b>', 'info');
+            document.write('<div style="color:red;">Тестовый текст</div>');
+        }
+
+        function testWebSocket() {
+            if (!logger) {
+                console.error('Logger не инициализирован');
+                return;
+            }
+            logger.logToPage('🔌 <b>Тест WebSocket...</b>', 'info');
+            try {
+                const ws = new WebSocket('wss://echo.websocket.org');
+                ws.onopen = () => {
+                    logger.logToPage('✅ WebSocket подключен', 'info');
+                    ws.send('Тестовое сообщение');
+                };
+                ws.onmessage = (event) => {
+                    logger.logToPage(`📨 WebSocket сообщение: ${event.data}`, 'info');
+                    ws.close();
+                };
+            } catch (error) {
+                logger.logToPage(`❌ WebSocket ошибка: ${error.message}`, 'error');
+            }
+        }
+
+        function testStorage() {
+            if (!logger) {
+                console.error('Logger не инициализирован');
+                return;
+            }
+            logger.logToPage('💾 <b>Тест Storage...</b>', 'info');
+            try {
+                localStorage.setItem('test_key', 'test_value');
+                const value = localStorage.getItem('test_key');
+                logger.logToPage(`✅ localStorage: ${value}`, 'info');
+                
+                sessionStorage.setItem('session_key', 'session_value');
+                const sessionValue = sessionStorage.getItem('session_key');
+                logger.logToPage(`✅ sessionStorage: ${sessionValue}`, 'info');
+            } catch (error) {
+                logger.logToPage(`❌ Storage ошибка: ${error.message}`, 'error');
+            }
+        }
+
+        function testGeolocation() {
+            if (!logger) {
+                console.error('Logger не инициализирован');
+                return;
+            }
+            logger.logToPage('📍 <b>Тест Geolocation...</b>', 'info');
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        logger.logToPage(`✅ Геолокация: ${position.coords.latitude}, ${position.coords.longitude}`, 'info');
+                    },
+                    (error) => {
+                        logger.logToPage(`❌ Геолокация ошибка: ${error.message}`, 'error');
+                    }
+                );
+            } else {
+                logger.logToPage('❌ Геолокация не поддерживается', 'error');
+            }
+        }
+
+        function testMediaDevices() {
+            if (!logger) {
+                console.error('Logger не инициализирован');
+                return;
+            }
+            logger.logToPage('📷 <b>Тест MediaDevices...</b>', 'info');
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                    .then(stream => {
+                        logger.logToPage('✅ MediaDevices: доступ к камере/микрофону получен', 'info');
+                        stream.getTracks().forEach(track => track.stop());
+                    })
+                    .catch(error => {
+                        logger.logToPage(`❌ MediaDevices ошибка: ${error.message}`, 'error');
+                    });
+            } else {
+                logger.logToPage('❌ MediaDevices не поддерживается', 'error');
+            }
+        }
+
+        function testCrypto() {
+            if (!logger) {
+                console.error('Logger не инициализирован');
+                return;
+            }
+            logger.logToPage('🔐 <b>Тест Crypto...</b>', 'info');
+            try {
+                const array = new Uint8Array(16);
+                crypto.getRandomValues(array);
+                logger.logToPage(`✅ Crypto: ${array.length} случайных байт`, 'info');
+            } catch (error) {
+                logger.logToPage(`❌ Crypto ошибка: ${error.message}`, 'error');
+            }
+        }
+
+        function testNotifications() {
+            if (!logger) {
+                console.error('Logger не инициализирован');
+                return;
+            }
+            logger.logToPage('🔔 <b>Тест Notifications...</b>', 'info');
+            if (window.Notification) {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        new Notification('Тестовое уведомление', {
+                            body: 'Это тестовое уведомление',
+                            icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🔔</text></svg>'
+                        });
+                        logger.logToPage('✅ Уведомление отправлено', 'info');
+                    } else {
+                        logger.logToPage('❌ Разрешение на уведомления не получено', 'error');
+                    }
+                });
+            } else {
+                logger.logToPage('❌ Notifications не поддерживается', 'error');
+            }
+        }
+
+        function testClipboard() {
+            if (!logger) {
+                console.error('Logger не инициализирован');
+                return;
+            }
+            logger.logToPage('📋 <b>Тест Clipboard...</b>', 'info');
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText('Тестовый текст для буфера обмена')
+                    .then(() => {
+                        logger.logToPage('✅ Текст записан в буфер обмена', 'info');
+                        return navigator.clipboard.readText();
+                    })
+                    .then(text => {
+                        logger.logToPage(`✅ Текст прочитан из буфера: ${text}`, 'info');
+                    })
+                    .catch(error => {
+                        logger.logToPage(`❌ Clipboard ошибка: ${error.message}`, 'error');
+                    });
+            } else {
+                logger.logToPage('❌ Clipboard не поддерживается', 'error');
+            }
+        }
+
+        function testHistory() {
+            if (!logger) {
+                console.error('Logger не инициализирован');
+                return;
+            }
+            logger.logToPage('📜 <b>Тест History...</b>', 'info');
+            try {
+                history.pushState({ test: 'data' }, 'Test Title', '#test');
+                logger.logToPage('✅ history.pushState выполнен', 'info');
+                
+                history.replaceState({ test: 'replaced' }, 'Replaced Title', '#replaced');
+                logger.logToPage('✅ history.replaceState выполнен', 'info');
+            } catch (error) {
+                logger.logToPage(`❌ History ошибка: ${error.message}`, 'error');
+            }
+        }
+
+        function testLocation() {
+            if (!logger) {
+                console.error('Logger не инициализирован');
+                return;
+            }
+            logger.logToPage('🌍 <b>Тест Location...</b>', 'info');
+            try {
+                const currentUrl = location.href;
+                logger.logToPage(`✅ Текущий URL: ${currentUrl}`, 'info');
+                
+                // Не выполняем реальный переход, только тестируем функции
+                logger.logToPage('✅ Location функции доступны', 'info');
+            } catch (error) {
+                logger.logToPage(`❌ Location ошибка: ${error.message}`, 'error');
+            }
+        }
+
+        function testConsole() {
+            if (!logger) {
+                console.error('Logger не инициализирован');
+                return;
+            }
+            logger.logToPage('🖥️ <b>Тест Console...</b>', 'info');
+            console.log('Тестовое сообщение log');
+            console.warn('Тестовое сообщение warn');
+            console.error('Тестовое сообщение error');
+            console.info('Тестовое сообщение info');
+            console.debug('Тестовое сообщение debug');
+            logger.logToPage('✅ Console методы вызваны', 'info');
+        }
+
+        function testPerformance() {
+            if (!logger) {
+                console.error('Logger не инициализирован');
+                return;
+            }
+            logger.logToPage('⏱️ <b>Тест Performance...</b>', 'info');
+            try {
+                // Используем Date.now() вместо performance.now() для избежания проблем
+                const start = Date.now();
+                performance.mark('test-start');
+                
+                // Имитируем работу
+                for (let i = 0; i < 1000; i++) {
+                    Math.random();
+                }
+                
+                performance.mark('test-end');
+                performance.measure('test-duration', 'test-start', 'test-end');
+                
+                const end = Date.now();
+                logger.logToPage(`✅ Performance: ${(end - start)}ms`, 'info');
+            } catch (error) {
+                logger.logToPage(`❌ Performance ошибка: ${error.message}`, 'error');
+            }
+        }
+
+        function testObservers() {
+            if (!logger) {
+                console.error('Logger не инициализирован');
+                return;
+            }
+            logger.logToPage('👁️ <b>Тест Observers...</b>', 'info');
+            try {
+                // MutationObserver
+                const mutationObserver = new MutationObserver((mutations) => {
+                    logger.logToPage(`✅ MutationObserver: ${mutations.length} изменений`, 'info');
+                });
+                
+                // IntersectionObserver
+                const intersectionObserver = new IntersectionObserver((entries) => {
+                    logger.logToPage(`✅ IntersectionObserver: ${entries.length} записей`, 'info');
+                });
+                
+                // ResizeObserver
+                if (window.ResizeObserver) {
+                    const resizeObserver = new ResizeObserver((entries) => {
+                        logger.logToPage(`✅ ResizeObserver: ${entries.length} изменений размера`, 'info');
+                    });
+                }
+                
+                logger.logToPage('✅ Все Observers созданы', 'info');
+            } catch (error) {
+                logger.logToPage(`❌ Observers ошибка: ${error.message}`, 'error');
+            }
+        }
+
+
+        // ==================== ОБЕРТКИ ДЛЯ КНОПОК ====================
+        function startInterception() {
+            if (!interceptor) {
+                console.error('Interceptor не инициализирован');
+                return;
+            }
+            interceptor.startInterception();
+        }
+
+        function stopInterception() {
+            if (!interceptor) {
+                console.error('Interceptor не инициализирован');
+                return;
+            }
+            interceptor.stopInterception();
+        }
+
+        function clearOutput() {
+            if (!logger) {
+                console.error('Logger не инициализирован');
+                return;
+            }
+            logger.clearOutput();
+        }
+
+        // ==================== УПРАВЛЕНИЕ ПАНЕЛЬЮ ЛОГА ====================
+        function toggleLogPanel() {
+            const panel = document.querySelector('.output-panel');
+            const button = document.getElementById('toggleLogPanel');
+            
+            if (panel.style.display === 'none' || panel.style.visibility === 'hidden') {
+                panel.style.display = 'block';
+                panel.style.visibility = 'visible';
+                button.textContent = '📋 Скрыть панель лога';
+                button.style.background = '#4CAF50';
+            } else {
+                panel.style.display = 'none';
+                panel.style.visibility = 'hidden';
+                button.textContent = '📋 Показать панель лога';
+                button.style.background = '#FF9800';
+            }
+        }
+        
+        // ==================== УПРАВЛЕНИЕ ОТЛАДОЧНЫМ РЕЖИМОМ ====================
+        function toggleDebugMode() {
+            if (logger) {
+                logger.debugMode = !logger.debugMode;
+                const button = document.getElementById('debugToggle');
+                
+                if (logger.debugMode) {
+                    button.textContent = '🐛 Отладка: ВКЛ';
+                    button.style.background = '#4CAF50';
+                    logger.logToPage('🐛 <b>Отладочный режим включен</b> - логи выводятся в консоль', 'info');
+                } else {
+                    button.textContent = '🐛 Отладка: ВЫКЛ';
+                    button.style.background = '#666';
+                    logger.logToPage('🐛 <b>Отладочный режим выключен</b> - логи не выводятся в консоль', 'info');
+                }
+            }
+        }
+        
+        // ==================== УПРАВЛЕНИЕ РАЗМЕРОМ ПАНЕЛЕЙ ====================
+        function resizeMainPanel(size) {
+            const container = document.querySelector('.container');
+            if (!container) return;
+            
+            if (size === 'small') {
+                container.style.width = '400px';
+                container.style.height = '120px';
+                container.style.maxHeight = '120px';
+                logger.logToPage('📏 <b>Основная панель</b>: Установлен маленький размер', 'info');
+            } else if (size === 'large') {
+                container.style.width = 'calc(100vw - 20px)';
+                container.style.height = '300px';
+                container.style.maxHeight = '300px';
+                logger.logToPage('📏 <b>Основная панель</b>: Установлен большой размер', 'info');
+            }
+            
+            // Обновляем позицию лога после изменения размера основной панели
+            setTimeout(adjustLogPanelPosition, 100);
+        }
+        
+        function resizeLogPanel(size) {
+            const logPanel = document.querySelector('.output-panel');
+            if (!logPanel) return;
+            
+            if (size === 'small') {
+                logPanel.style.width = '400px';
+                logPanel.style.height = '200px';
+                logger.logToPage('📏 <b>Панель лога</b>: Установлен маленький размер', 'info');
+            } else if (size === 'large') {
+                logPanel.style.width = 'calc(100vw - 20px)';
+                logPanel.style.height = 'calc(100vh - 350px)';
+                logger.logToPage('📏 <b>Панель лога</b>: Установлен большой размер', 'info');
+            }
+        }
+        
+        function resizeMiddlePanel(size) {
+            const middlePanel = document.querySelector('.middle-panel');
+            if (!middlePanel) return;
+            
+            if (size === 'small') {
+                middlePanel.style.height = '80px';
+                logger.logToPage('📏 <b>Промежуточная панель</b>: Установлен маленький размер', 'info');
+            } else if (size === 'large') {
+                middlePanel.style.height = '200px';
+                logger.logToPage('📏 <b>Промежуточная панель</b>: Установлен большой размер', 'info');
+            }
+            
+            // Обновляем позицию лога после изменения размера промежуточной панели
+            setTimeout(adjustLogPanelPosition, 100);
+        }
+
+        // ==================== ИНИЦИАЛИЗАЦИЯ ====================
+        let logger, interceptor;
+
+        // Инициализация после загрузки DOM
+        function initializeSystem() {
+            if (!logger) {
+                logger = new OutputLogger();
+            }
+            if (!interceptor) {
+                interceptor = new SystemInterceptor();
+            }
+
+        // Авто-обновление статистики
+        setInterval(() => interceptor.updateStats(), 1000);
+
+        // Стартовая информация
+        logger.logToPage('🟢 Система перехвата готова к работе', 'info');
+        logger.logToPage('Нажмите "Запустить перехват" для начала мониторинга', 'info');
+        logger.logToPage('📦 Загрузка JS файлов доступна в панели выше', 'info');
+        logger.logToPage('🔍 Логи анализа отображаются в этой панели', 'analysis');
+        logger.logToPage('📁 Логи загрузки скриптов отображаются здесь', 'script');
+        }
+
+        // Инициализация при загрузке страницы
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeSystem);
+        } else {
+            initializeSystem();
+        }
+        
+        // Горячие клавиши для управления панелью
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'h') {
+                e.preventDefault();
+                toggleLogPanel();
+            }
+        });
+        
+        // Автоматическая прокрутка лога к новым записям
+        function setupAutoScroll() {
+            const logPanel = document.querySelector('.output-panel');
+            
+            if (logPanel) {
+                // Автоматическая прокрутка к низу при добавлении новых записей
+                const observer = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                            logPanel.scrollTop = logPanel.scrollHeight;
+                        }
+                    });
+                });
+                
+                observer.observe(logPanel, {
+                    childList: true,
+                    subtree: true
+                });
+            }
+        }
+        
+        // Динамическое позиционирование панели лога под промежуточной панелью
+        function adjustLogPanelPosition() {
+            const middlePanel = document.querySelector('.middle-panel');
+            const logPanel = document.querySelector('.output-panel');
+            
+            if (middlePanel && logPanel) {
+                const middlePanelRect = middlePanel.getBoundingClientRect();
+                const newTop = middlePanelRect.bottom + 10;
+                const newHeight = window.innerHeight - newTop - 10;
+                
+                logPanel.style.top = newTop + 'px';
+                logPanel.style.height = Math.max(200, newHeight) + 'px';
+                logPanel.style.left = '10px';
+                logPanel.style.right = '10px';
+                logPanel.style.width = 'calc(100vw - 20px)';
+            }
+        }
+        
+        // Настройка автоматической прокрутки и позиционирования после загрузки
+        setTimeout(() => {
+            setupAutoScroll();
+            adjustLogPanelPosition();
+            
+            // Обновляем позицию при изменении размера окна
+            window.addEventListener('resize', adjustLogPanelPosition);
+        }, 1000);
+        
+        // Функция для тестирования всех кнопок
+        function testAllButtons() {
+            console.log('=== ТЕСТ ВСЕХ КНОПОК ===');
+            console.log('Logger:', logger ? '✅' : '❌');
+            console.log('Interceptor:', interceptor ? '✅' : '❌');
+            
+            // Тест элементов интерфейса
+            const elements = [
+                'scriptFileName'
+            ];
+            
+            elements.forEach(id => {
+                const element = document.getElementById(id);
+                console.log(`${id}:`, element ? '✅' : '❌');
+            });
+        }
+        
+        // Автоматический тест через 2 секунды после загрузки
+        setTimeout(testAllButtons, 2000);
+        
+        // Тест логов анализа
+        function testAnalysisLogs() {
+            if (logger) {
+                console.log('Тестируем логи анализа...');
+                logger.logToPage('🧪 <b>Тест логов анализа</b>: Проверка отображения', 'analysis');
+                logger.logToPage('🧪 <b>Тест логов скриптов</b>: Проверка отображения', 'script');
+                logger.logToPage('🧪 <b>Тест обычных логов</b>: Проверка отображения', 'info');
+            }
+        }
+        
+        // Тест логов через 3 секунды
+        setTimeout(testAnalysisLogs, 3000);
+    </script>
+</body>
+</html>
